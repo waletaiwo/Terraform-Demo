@@ -22,20 +22,23 @@ resource "aws_internet_gateway" "prod-app" {
 
 
 # Elastic ip
-resource "aws_eip" "elip" {
-  instance = aws_instance.prod-app.id
-  vpc      = true
+resource "aws_eip" "elip1" {
+  vpc        = true
+  depends_on = [aws_internet_gateway.prod-app]
+}
+
+resource "aws_eip" "elip2" {
+  vpc        = true
   depends_on = [aws_internet_gateway.prod-app]
 }
 
 
 
-
 # Nat gateway1
 resource "aws_nat_gateway" "ngw1" {
-  allocation_id = aws_eip.elip.id
+  allocation_id = aws_eip.elip1.id
   subnet_id     = aws_subnet.private-subnet1.id
-  depends_on = [aws_internet_gateway.prod-app]
+  depends_on    = [aws_internet_gateway.prod-app]
 
   tags = {
     Name = "gw NAT"
@@ -45,9 +48,9 @@ resource "aws_nat_gateway" "ngw1" {
 
 # Nat gateway2
 resource "aws_nat_gateway" "ngw2" {
-  allocation_id = aws_eip.elip.id
+  allocation_id = aws_eip.elip2.id
   subnet_id     = aws_subnet.private-subnet2.id
-  depends_on = [aws_internet_gateway.prod-app]
+  depends_on    = [aws_internet_gateway.prod-app]
 
   tags = {
     Name = "gw NAT"
@@ -55,11 +58,12 @@ resource "aws_nat_gateway" "ngw2" {
 }
 
 # Network interface
-
-
-
-
-
+resource "aws_network_interface" "prod-app" {
+  subnet_id = aws_subnet.private-subnet1.id
+  private_ip = "10.0.3.10"
+  security_groups = [ aws_security_group.prod-app-sg.id ]
+  
+}
 
 # Public Route table 
 resource "aws_route_table" "public-route" {
@@ -152,37 +156,37 @@ resource "aws_security_group" "prod-app-sg" {
   description = "Allow web inbound traffic"
   vpc_id      = aws_vpc.prod-app-vpc.id
 
-ingress {
-  description      = "HTTPS"
-  from_port        = 443
-  to_port          = 443
-  protocol         = "tcp"
-  cidr_blocks      = ["0.0.0.0/0"]
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-ingress {
-    description      = "HTTP"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
     cidr_blocks      = ["0.0.0.0/0"]
-  }
-
-ingress {
-  description      = "SSH"
-  from_port        = 22
-  to_port          = 22
-  protocol         = "tcp"
-  cidr_blocks      = ["0.0.0.0/0"]
-  }
-
-
-egress {
-  from_port        = 0
-  to_port          = 0
-  protocol         = "-1"
-  cidr_blocks      = ["0.0.0.0/0"]
-  ipv6_cidr_blocks = ["::/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
@@ -192,15 +196,14 @@ egress {
 
 # create  aws instance 
 resource "aws_instance" "prod-app" {
-  ami           = "ami-042e8287309f5df03"
-  instance_type = "t2.micro"
+  ami               = "ami-042e8287309f5df03"
+  instance_type     = "t2.micro"
   availability_zone = "us-east-1c"
-  key_name          = "prod-key" 
-  
+  key_name          = "prod-key"
 
-
-  tags = {
-    "Name" = "prod-app"
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.prod-app.id
   }
 }
 
