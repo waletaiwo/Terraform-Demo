@@ -21,6 +21,7 @@ resource "aws_internet_gateway" "prod-app" {
 }
 
 
+
 # Elastic ip
 resource "aws_eip" "elip1" {
   vpc        = true
